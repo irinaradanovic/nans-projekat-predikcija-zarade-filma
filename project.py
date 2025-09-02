@@ -1,5 +1,4 @@
 import pandas as pd
-import ast
 import statsmodels.api as sm
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
@@ -9,11 +8,33 @@ import matplotlib.pyplot as plt
 import seaborn as sn
 import numpy as np
 from utils_nans1 import *
-from sklearn.decomposition import PCA
-from sklearn.pipeline import Pipeline
 from sklearn.linear_model import Ridge
 from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import Ridge, Lasso
+from sklearn.metrics import r2_score
 
+
+def adjusted_r2(model, X, y):  
+    """Compute adjusted R² for sklearn models"""
+    y_pred = model.predict(X)
+    r2 = r2_score(y, y_pred)
+    n = X.shape[0]
+    p = X.shape[1]
+    adj_r2 = 1 - (1 - r2) * (n - 1) / (n - p - 1)
+    return adj_r2
+
+def plot_real_vs_predicted(y_test, y_pred, title):
+    plt.figure(figsize=(6,6))
+    plt.scatter(y_test, y_pred, alpha=0.5, color="blue", label="Predikcije")
+    plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 
+             color="red", linestyle="--", label="Idealna linija")
+    plt.xlabel("Stvarne vrednosti (y_test)")
+    plt.ylabel("Predviđene vrednosti (y_pred)")
+    plt.title(title)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 df = pd.read_csv("movies.csv")
 #izbacujemo year, release, country-nepotrebno
@@ -37,20 +58,20 @@ df["runtime"] = df["runtime"].fillna(df["runtime"].median())
 #dummies kolone za rating i genre, npr genre_Animation moze biti 0 ili 1
 df = pd.get_dummies(df, columns=["rating", "genre"], drop_first=True, dtype=float)
 
-#vadimo top 8 rezisera, glumaca...
-top_directors = df["director"].value_counts().nlargest(8).index
+#vadimo top 10 rezisera, glumaca...
+top_directors = df["director"].value_counts().nlargest(10).index
 df["director"] = df["director"].where(df["director"].isin(top_directors), other="Other") 
 
-top_actors = df["star"].value_counts().nlargest(8).index
+top_actors = df["star"].value_counts().nlargest(10).index
 df["star"] = df["star"].where(df["star"].isin(top_actors), other="Other") 
 
-top_companies = df["company"].value_counts().nlargest(8).index
+top_companies = df["company"].value_counts().nlargest(10).index
 df["company"] = df["company"].where(df["company"].isin(top_companies), other="Other")
 
-top_writers = df["writer"].value_counts().nlargest(8).index
+top_writers = df["writer"].value_counts().nlargest(10).index
 df["writer"] = df["writer"].where(df["writer"].isin(top_writers), other="Other")
 
-#dummies kolone za top 8
+#dummies kolone za top 10
 df = pd.get_dummies(df, columns=["director", "writer", "star", "company"], drop_first=True, dtype=float)
 
 '''pd.set_option('display.max_rows', None)
@@ -102,7 +123,7 @@ y_pred = model.predict(X_test)
 X_train_const = sm.add_constant(X_train)
 sm_model = sm.OLS(y_train, X_train_const).fit() 
 
-print(sm_model.summary())  # statistika, p-values, R^2  
+print(sm_model.summary())  # statistika 
 print()
 print()
 print("Linearna regresija:")
@@ -119,35 +140,23 @@ print()
 print()
 print("Pretpostavke:")
 print("Assumptions satisfied?:", are_assumptions_satisfied(sm_model, X_train_const, y_train))
-is_linearity_found, p_value = linear_assumption(sm_model, X_train_const, y_train)
+is_linearity_found, p_value = linear_assumption(sm_model, X_train_const, y_train, plot=False)
 print("Is linearity found: ", is_linearity_found, "p_value: ", p_value)
-autocorr, dw = independence_of_errors_assumption(sm_model, X_train_const, y_train)
+autocorr, dw = independence_of_errors_assumption(sm_model, X_train_const, y_train, plot=False)
 print("Autocorrelation:", autocorr, "Durbin-Watson:", dw)
 
-dist_type, p_val = normality_of_errors_assumption(sm_model, X_train_const, y_train)
+dist_type, p_val = normality_of_errors_assumption(sm_model, X_train_const, y_train, plot=False)
 print("Residuals distribution:", dist_type, "p-value:", p_val)
 
-eq_var, p_val_eq = equal_variance_assumption(sm_model, X_train_const, y_train)
+eq_var, p_val_eq = equal_variance_assumption(sm_model, X_train_const, y_train, plot=False)
 print("Equal variance:", eq_var, "p-value:", p_val_eq)
 
-has_collinearity = perfect_collinearity_assumption(X_train_const)
+has_collinearity = perfect_collinearity_assumption(X_train_const, plot=False)
 print("Perfect collinearity:", has_collinearity)
 
 
 
 #------------RIDGE I LASSO------------
-from sklearn.linear_model import Ridge, Lasso
-from sklearn.metrics import r2_score
-
-def adjusted_r2(model, X, y):  
-    """Compute adjusted R² for sklearn models"""
-    y_pred = model.predict(X)
-    r2 = r2_score(y, y_pred)
-    n = X.shape[0]
-    p = X.shape[1]
-    adj_r2 = 1 - (1 - r2) * (n - 1) / (n - p - 1)
-    return adj_r2
-
 
 # --- Priprema modela ---
 ridge_model = Ridge(alpha=1.0)
@@ -179,6 +188,7 @@ print("RMSE:", np.sqrt(mean_squared_error(y_test, y_pred_lasso)))
 print("Adjusted R2:", adjusted_r2(lasso_model, X_train, y_train))
 
 
+#------------GRADIENT BOOSTING------------
 
 # Inicijalizacija modela
 gb_model = GradientBoostingRegressor(
@@ -187,8 +197,6 @@ gb_model = GradientBoostingRegressor(
     max_depth=4,           # dubina stabala
     random_state=42
 )
-
-#------------GRADIENT BOOSTING------------
 
 # Treniranje
 gb_model.fit(X_train, y_train)
@@ -202,7 +210,7 @@ print("Gradient Boosting Results:")
 print("MAE:", mean_absolute_error(y_test, y_pred_gb))
 print("MSE:", mean_squared_error(y_test, y_pred_gb))
 print("RMSE:", np.sqrt(mean_squared_error(y_test, y_pred_gb)))
-print("Adjusted R2:", adjusted_r2(gb_model, X_train, y_train))
+print("Adjusted R2:", adjusted_r2(gb_model, X_test, y_test))
 
 # Važnost feature-a (feature importance)
 importances = gb_model.feature_importances_
@@ -220,11 +228,97 @@ plt.title("Top 8 Feature Importance - Gradient Boosting")
 plt.tight_layout()
 plt.show()
 
+
+
+#------------RANDOM FOREST------------
+rf_model = RandomForestRegressor(
+    n_estimators=300,     # broj stabala (više stabala = bolji model, ali sporiji)
+    max_depth=10,       # možeš ograničiti dubinu stabala (npr. max_depth=10 da smanjiš overfitting)
+    random_state=42,
+    n_jobs=-1             # koristi sve procesore za brže treniranje
+)
+
+# Treniranje
+rf_model.fit(X_train, y_train)
+
+# Predviđanje
+y_pred_rf = rf_model.predict(X_test)
+
+# Evaluacija
+print()
+print("Random Forest Results:")
+print("MAE:", mean_absolute_error(y_test, y_pred_rf))
+print("MSE:", mean_squared_error(y_test, y_pred_rf))
+print("RMSE:", np.sqrt(mean_squared_error(y_test, y_pred_rf)))
+print("Adjusted R2:", adjusted_r2(rf_model, X_test, y_test))
+
+# Važnost feature-a (feature importance)
+importances = rf_model.feature_importances_
+indices = np.argsort(importances)[::-1]
+
+print("\nTop 8 najvažnijih feature-a (Random Forest):")
+for i in range(8):
+    print(f"{X_train.columns[indices[i]]}: {importances[indices[i]]:.4f}")
+
+# Grafički prikaz feature importance (Top 8)
+plt.figure(figsize=(10,6))
+plt.bar(range(8), importances[indices[:8]], align='center')
+plt.xticks(range(8), X_train.columns[indices[:8]], rotation=45, ha="right")
+plt.title("Top 8 Feature Importance - Random Forest")
+plt.tight_layout()
+plt.show()
+
+plt.close('all')
+
+
+
+
+#-------GRAFICKI PRIKAZ ZA SVAKI MODEL-------
+# Linear Regression
+plot_real_vs_predicted(y_test, y_pred, "Linear Regression: Real vs Predicted")
+
+# Ridge
+plot_real_vs_predicted(y_test, y_pred_ridge, "Ridge Regression: Real vs Predicted")
+
+# Lasso
+plot_real_vs_predicted(y_test, y_pred_lasso, "Lasso Regression: Real vs Predicted")
+
+# Gradient Boosting
+plot_real_vs_predicted(y_test, y_pred_gb, "Gradient Boosting: Real vs Predicted")
+
+# Random Forest
+plot_real_vs_predicted(y_test, y_pred_rf, "Random Forest: Real vs Predicted")
+
+
+#Koliki je očekivani prihod filma sa budžetom 50M$, 100k glasova, 120 min, PG-13 rejtingom i Action žanrom?
+#uradjeno na modelu OLS
+# Primer novog filma
+novi_film = pd.DataFrame({
+    'budget': [50_000_000],   # budžet
+    'votes': [100_000],       # broj glasova
+    'runtime': [120],         # trajanje u minutima
+    'rating': ['PG-13'],      # rejting (ako si ga enkodovao, treba pripremiti isto)
+    'genre': ['Action'],      # žanr (isto, ako je enkodovan)
+    # dodaj sve ostale kolone koje si koristio u modelu
+})
+
+# Ako koristiš OneHotEncoder ili pd.get_dummies za kategorije,
+# moraš ih pretvoriti na isti način kao i trenirajući skup:
+novi_film_encoded = pd.get_dummies(novi_film)
+novi_film_encoded = novi_film_encoded.reindex(columns=X.columns, fill_value=0)
+
+# Predikcija
+predicted_gross = sm_model.predict(novi_film_encoded)
+print()
+print(f"Ocekivani prihod: {predicted_gross[0]:,.2f} $")
+
+
+
 '''OLS (LinearRegression + sm.OLS)
 
 R² ≈ 0.685, Adjusted R² ≈ 0.681
 
-Model objašnjava oko 68–69% varijanse zarade filma (nakon log-transformacije ciljne promenljive).
+Model objašnjava oko 68-69% varijanse zarade filma (nakon log-transformacije ciljne promenljive).
 
 Ovo je solidno za ekonomske podatke jer zarada filmova može biti ekstremno različita (od malih nezavisnih filmova do blockbuster-a).
 
@@ -310,6 +404,25 @@ Za predikciju zarade filma, OLS ili Ridge su solidni.
 Ako želiš pojednostavljen model sa manje feature-a, koristi Lasso.
 
 Uvek imaj na umu da ekstremni blockbusteri mogu značajno uticati na grešku i normalnost reziduala.
+
+
+
+Zaključci iz rezultata
+
+OLS i Ridge imaju skoro iste performanse (R² ≈ 0.68).
+→ Ridge pomaže kad postoji multikolinearnost, stabilizuje koeficijente, ali ne diže R² dramatično.
+
+Lasso ima manji R² (~0.67), jer agresivnije "gasi" neke koeficijente → možeš ga koristiti za feature selection.
+
+Gradient Boosting i Random Forest su slični Ridge-u, ali čak i nešto slabiji u tvom slučaju (R² ~0.66).
+→ To znači da je odnos prediktora i targeta verovatno pretežno linearan, pa linearni modeli rade bolje.
+
+
+
+najbolji featuri:
+Budget jeste input (koliko novca uložiš), ali ne garantuje automatski uspeh.
+
+Votes zapravo hvata popularnost (koliko ljudi se uključilo da oceni film), i to je vrlo direktan signal za prihod.
 '''
 
 
