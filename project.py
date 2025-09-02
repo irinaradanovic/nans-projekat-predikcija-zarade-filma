@@ -12,6 +12,8 @@ from utils_nans1 import *
 from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import Ridge
+from sklearn.ensemble import GradientBoostingRegressor
+
 
 df = pd.read_csv("movies.csv")
 #izbacujemo year, release, country-nepotrebno
@@ -175,6 +177,48 @@ print("MAE:", mean_absolute_error(y_test, y_pred_lasso))
 print("MSE:", mean_squared_error(y_test, y_pred_lasso))
 print("RMSE:", np.sqrt(mean_squared_error(y_test, y_pred_lasso)))
 print("Adjusted R2:", adjusted_r2(lasso_model, X_train, y_train))
+
+
+
+# Inicijalizacija modela
+gb_model = GradientBoostingRegressor(
+    n_estimators=300,      # broj stabala (više = složeniji model, ali i sporiji)
+    learning_rate=0.05,    # manji learning_rate zahteva više stabala
+    max_depth=4,           # dubina stabala
+    random_state=42
+)
+
+#------------GRADIENT BOOSTING------------
+
+# Treniranje
+gb_model.fit(X_train, y_train)
+
+# Predviđanje
+y_pred_gb = gb_model.predict(X_test)
+
+# Evaluacija
+print()
+print("Gradient Boosting Results:")
+print("MAE:", mean_absolute_error(y_test, y_pred_gb))
+print("MSE:", mean_squared_error(y_test, y_pred_gb))
+print("RMSE:", np.sqrt(mean_squared_error(y_test, y_pred_gb)))
+print("Adjusted R2:", adjusted_r2(gb_model, X_train, y_train))
+
+# Važnost feature-a (feature importance)
+importances = gb_model.feature_importances_
+indices = np.argsort(importances)[::-1]
+
+print("\nTop 8 najvažnijih feature-a (Gradient Boosting):")
+for i in range(8):
+    print(f"{X_train.columns[indices[i]]}: {importances[indices[i]]:.4f}")
+
+# Grafički prikaz feature importance (Top 8)
+plt.figure(figsize=(10,6))
+plt.bar(range(8), importances[indices[:8]], align='center')
+plt.xticks(range(8), X_train.columns[indices[:8]], rotation=45, ha="right")
+plt.title("Top 8 Feature Importance - Gradient Boosting")
+plt.tight_layout()
+plt.show()
 
 '''OLS (LinearRegression + sm.OLS)
 
