@@ -13,6 +13,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge, Lasso
 from sklearn.metrics import r2_score
+from sklearn.tree import DecisionTreeRegressor
 
 
 def adjusted_r2(model, X, y):  
@@ -270,7 +271,41 @@ plt.show()
 
 plt.close('all')
 
+#------------DECISION TREE------------
+dt_model = DecisionTreeRegressor(
+    max_depth=10,       # možeš menjati dubinu stabla (npr. 5, 10, None)
+    random_state=42
+)
 
+# Treniranje
+dt_model.fit(X_train, y_train)
+
+# Predviđanje
+y_pred_dt = dt_model.predict(X_test)
+
+# Evaluacija
+print()
+print("Decision Tree Results:")
+print("MAE:", mean_absolute_error(y_test, y_pred_dt))
+print("MSE:", mean_squared_error(y_test, y_pred_dt))
+print("RMSE:", np.sqrt(mean_squared_error(y_test, y_pred_dt)))
+print("Adjusted R2:", adjusted_r2(dt_model, X_test, y_test))
+
+# Važnost feature-a (feature importance)
+importances = dt_model.feature_importances_
+indices = np.argsort(importances)[::-1]
+
+print("\nTop 8 najvažnijih feature-a (Decision Tree):")
+for i in range(8):
+    print(f"{X_train.columns[indices[i]]}: {importances[indices[i]]:.4f}")
+
+# Grafički prikaz feature importance (Top 8)
+plt.figure(figsize=(10,6))
+plt.bar(range(8), importances[indices[:8]], align='center')
+plt.xticks(range(8), X_train.columns[indices[:8]], rotation=45, ha="right")
+plt.title("Top 8 Feature Importance - Decision Tree")
+plt.tight_layout()
+plt.show()
 
 
 #-------GRAFICKI PRIKAZ ZA SVAKI MODEL-------
@@ -288,6 +323,9 @@ plot_real_vs_predicted(y_test, y_pred_gb, "Gradient Boosting: Real vs Predicted"
 
 # Random Forest
 plot_real_vs_predicted(y_test, y_pred_rf, "Random Forest: Real vs Predicted")
+
+#Decision Tree
+plot_real_vs_predicted(y_test, y_pred_dt, "Decision Tree: Real vs Predicted")
 
 
 #Koliki je očekivani prihod filma sa budžetom 50M$, 100k glasova, 120 min, PG-13 rejtingom i Action žanrom?
@@ -417,7 +455,14 @@ Lasso ima manji R² (~0.67), jer agresivnije "gasi" neke koeficijente → može�
 Gradient Boosting i Random Forest su slični Ridge-u, ali čak i nešto slabiji u tvom slučaju (R² ~0.66).
 → To znači da je odnos prediktora i targeta verovatno pretežno linearan, pa linearni modeli rade bolje.
 
+*Decision Tree: tumačenje rezultata*
+-MAE ≈ 0.88 → prosečna greška u predikciji log(gross) je veća nego kod linearnih i ensemble modela (OLS, Ridge, Random Forest).
+-RMSE ≈ 1.26 → još veća greška na outlierima, pokazuje da se stablo "muči" sa ekstremnim blockbusterima.
+-Adjusted R² ≈ 0.54 → značajno lošije od OLS (~0.68), Ridge (~0.68) i čak Random Foresta (~0.66).
 
+=> To znači da Decision Tree kao samostalni model nije dobar za ove podatke – previše se prilagođava trening setu 
+(overfitting), ali se loše generalizuje na test set.
+Decision Tree nije dobar za generalnu predikciju (slab Adjusted R²), ali lepo ilustruje da su votes i budget najjači prediktori.
 
 najbolji featuri:
 Budget jeste input (koliko novca uložiš), ali ne garantuje automatski uspeh.
