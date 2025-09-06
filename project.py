@@ -17,7 +17,6 @@ from sklearn.tree import DecisionTreeRegressor
 
 
 def adjusted_r2(model, X, y):  
-    """Compute adjusted R² for sklearn models"""
     y_pred = model.predict(X)
     r2 = r2_score(y, y_pred)
     n = X.shape[0]
@@ -94,17 +93,6 @@ scaler = StandardScaler()
 X_train[num_cols] = scaler.fit_transform(X_train[num_cols]) 
 X_test[num_cols] = scaler.transform(X_test[num_cols])
 
-'''corr_matrix = X_train.corr()
-# Pronađi parove kolona sa skoro 1 ili -1 korelacijom
-threshold = 0.9999
-high_corr = []
-for i in range(len(corr_matrix.columns)):
-    for j in range(i+1, len(corr_matrix.columns)):
-        if np.isclose(corr_matrix.iloc[i, j], 1.0) or np.isclose(corr_matrix.iloc[i, j], -1.0):
-            high_corr.append((corr_matrix.columns[i], corr_matrix.columns[j], corr_matrix.iloc[i,j]))
-print("Highly correlated columns (possible perfect collinearity):")
-for col1, col2, val in high_corr:
-    print(f"{col1} <-> {col2} = {val}")'''
 
 #dobili smo da tamo gde je writer woody, on ce biti i director, izbacujemo u tom slucaju writer kolonu da ne bi imali savrsenu kolinearnost
 
@@ -127,11 +115,10 @@ sm_model = sm.OLS(y_train, X_train_const).fit()
 print(sm_model.summary())  # statistika 
 print()
 print()
-print("Linearna regresija:")
-print("MAE:", mean_absolute_error(y_test, y_pred))
-print("MSE:", mean_squared_error(y_test, y_pred))
-print("RMSE:", np.sqrt(mean_squared_error(y_test, y_pred)))
+print("Linearna regresija test:")
 print("Adjusted R2:", sm_model.rsquared_adj)
+
+
 
 
 # Dodaj konstantu u X_train 
@@ -141,18 +128,18 @@ print()
 print()
 print("Pretpostavke:")
 print("Assumptions satisfied?:", are_assumptions_satisfied(sm_model, X_train_const, y_train))
-is_linearity_found, p_value = linear_assumption(sm_model, X_train_const, y_train, plot=False)
+is_linearity_found, p_value = linear_assumption(sm_model, X_train_const, y_train)
 print("Is linearity found: ", is_linearity_found, "p_value: ", p_value)
-autocorr, dw = independence_of_errors_assumption(sm_model, X_train_const, y_train, plot=False)
+autocorr, dw = independence_of_errors_assumption(sm_model, X_train_const, y_train)
 print("Autocorrelation:", autocorr, "Durbin-Watson:", dw)
 
-dist_type, p_val = normality_of_errors_assumption(sm_model, X_train_const, y_train, plot=False)
+dist_type, p_val = normality_of_errors_assumption(sm_model, X_train_const, y_train)
 print("Residuals distribution:", dist_type, "p-value:", p_val)
 
-eq_var, p_val_eq = equal_variance_assumption(sm_model, X_train_const, y_train, plot=False)
+eq_var, p_val_eq = equal_variance_assumption(sm_model, X_train_const, y_train)
 print("Equal variance:", eq_var, "p-value:", p_val_eq)
 
-has_collinearity = perfect_collinearity_assumption(X_train_const, plot=False)
+has_collinearity = perfect_collinearity_assumption(X_train_const)
 print("Perfect collinearity:", has_collinearity)
 
 
@@ -169,11 +156,8 @@ y_pred_ridge = ridge_model.predict(X_test)
 
 print()
 print()
-print("Ridge Regression Results:")
-print("MAE:", mean_absolute_error(y_test, y_pred_ridge))
-print("MSE:", mean_squared_error(y_test, y_pred_ridge))
-print("RMSE:", np.sqrt(mean_squared_error(y_test, y_pred_ridge)))
-print("Adjusted R2:", adjusted_r2(ridge_model, X_train, y_train))
+print("Ridge Regression Results test:")
+print("Adjusted R2:", adjusted_r2(ridge_model, X_test, y_test))
 print("\n")
 
 # --- Fitovanje Lasso ---
@@ -182,19 +166,17 @@ y_pred_lasso = lasso_model.predict(X_test)
 
 print()
 print()
-print("Lasso Regression Results:")
-print("MAE:", mean_absolute_error(y_test, y_pred_lasso))
-print("MSE:", mean_squared_error(y_test, y_pred_lasso))
-print("RMSE:", np.sqrt(mean_squared_error(y_test, y_pred_lasso)))
-print("Adjusted R2:", adjusted_r2(lasso_model, X_train, y_train))
+print("Lasso Regression Results test:")
+print("Adjusted R2:", adjusted_r2(lasso_model, X_test, y_test))
+print()
 
 
 #------------GRADIENT BOOSTING------------
 
 # Inicijalizacija modela
 gb_model = GradientBoostingRegressor(
-    n_estimators=300,      # broj stabala (više = složeniji model, ali i sporiji)
-    learning_rate=0.05,    # manji learning_rate zahteva više stabala
+    n_estimators=300,      # broj stabala 
+    learning_rate=0.05,    
     max_depth=4,           # dubina stabala
     random_state=42
 )
@@ -207,11 +189,9 @@ y_pred_gb = gb_model.predict(X_test)
 
 # Evaluacija
 print()
-print("Gradient Boosting Results:")
-print("MAE:", mean_absolute_error(y_test, y_pred_gb))
-print("MSE:", mean_squared_error(y_test, y_pred_gb))
-print("RMSE:", np.sqrt(mean_squared_error(y_test, y_pred_gb)))
+print("Gradient Boosting Results test:")
 print("Adjusted R2:", adjusted_r2(gb_model, X_test, y_test))
+print()
 
 # Važnost feature-a (feature importance)
 importances = gb_model.feature_importances_
@@ -233,10 +213,10 @@ plt.show()
 
 #------------RANDOM FOREST------------
 rf_model = RandomForestRegressor(
-    n_estimators=300,     # broj stabala (više stabala = bolji model, ali sporiji)
-    max_depth=10,       # možeš ograničiti dubinu stabala (npr. max_depth=10 da smanjiš overfitting)
+    n_estimators=300,     # broj stabala 
+    max_depth=10,      
     random_state=42,
-    n_jobs=-1             # koristi sve procesore za brže treniranje
+    n_jobs=-1             
 )
 
 # Treniranje
@@ -247,11 +227,9 @@ y_pred_rf = rf_model.predict(X_test)
 
 # Evaluacija
 print()
-print("Random Forest Results:")
-print("MAE:", mean_absolute_error(y_test, y_pred_rf))
-print("MSE:", mean_squared_error(y_test, y_pred_rf))
-print("RMSE:", np.sqrt(mean_squared_error(y_test, y_pred_rf)))
+print("Random Forest Results test:")
 print("Adjusted R2:", adjusted_r2(rf_model, X_test, y_test))
+print()
 
 # Važnost feature-a (feature importance)
 importances = rf_model.feature_importances_
@@ -285,11 +263,9 @@ y_pred_dt = dt_model.predict(X_test)
 
 # Evaluacija
 print()
-print("Decision Tree Results:")
-print("MAE:", mean_absolute_error(y_test, y_pred_dt))
-print("MSE:", mean_squared_error(y_test, y_pred_dt))
-print("RMSE:", np.sqrt(mean_squared_error(y_test, y_pred_dt)))
+print("Decision Tree Results test:")
 print("Adjusted R2:", adjusted_r2(dt_model, X_test, y_test))
+print()
 
 # Važnost feature-a (feature importance)
 importances = dt_model.feature_importances_
@@ -332,146 +308,18 @@ plot_real_vs_predicted(y_test, y_pred_dt, "Decision Tree: Real vs Predicted")
 #uradjeno na modelu OLS
 # Primer novog filma
 novi_film = pd.DataFrame({
-    'budget': [50_000_000],   # budžet
-    'votes': [100_000],       # broj glasova
-    'runtime': [120],         # trajanje u minutima
-    'rating': ['PG-13'],      # rejting (ako si ga enkodovao, treba pripremiti isto)
-    'genre': ['Action'],      # žanr (isto, ako je enkodovan)
-    # dodaj sve ostale kolone koje si koristio u modelu
+    'budget': [50_000_000],   
+    'votes': [100_000],       
+    'runtime': [120],         
+    'rating': ['PG-13'],     
+    'genre': ['Action'],     
 })
 
-# Ako koristiš OneHotEncoder ili pd.get_dummies za kategorije,
-# moraš ih pretvoriti na isti način kao i trenirajući skup:
+
 novi_film_encoded = pd.get_dummies(novi_film)
 novi_film_encoded = novi_film_encoded.reindex(columns=X.columns, fill_value=0)
 
-# Predikcija
+
 predicted_gross = sm_model.predict(novi_film_encoded)
 print()
 print(f"Ocekivani prihod: {predicted_gross[0]:,.2f} $")
-
-
-
-'''OLS (LinearRegression + sm.OLS)
-
-R² ≈ 0.685, Adjusted R² ≈ 0.681
-
-Model objašnjava oko 68-69% varijanse zarade filma (nakon log-transformacije ciljne promenljive).
-
-Ovo je solidno za ekonomske podatke jer zarada filmova može biti ekstremno različita (od malih nezavisnih filmova do blockbuster-a).
-
-MAE ≈ 0.76, RMSE ≈ 1.06
-
-MAE pokazuje prosečnu grešku u predikciji log(gross) od 0.76 jedinica.
-
-RMSE je veći od MAE jer je osetljiviji na outliere (blokbasteri sa milijardama dolara).
-
-Log-transformacija je dobra jer smanjuje uticaj ekstremnih vrednosti i stabilizuje model.
-
-Pretpostavke linearne regresije:
-
-Linearnost → zadovoljena (postoji linearna veza između feature-a i log(gross))
-
-Autokorelacija reziduala → nema problema (Durbin-Watson ≈ 1.966)
-
-Homoskedastičnost (jednaka varijansa reziduala) → zadovoljena (p≈0.38)
-
-Normalnost reziduala → nije zadovoljena (p=0) → reziduali nisu normalno raspodeljeni
-
-Ovo je očekivano zbog ekstremnih vrednosti u zaradi filmova.
-
-Perfect collinearity → False → sada više nema savršene multikolinearnosti (odstranjena kolona “writer_Woody Allen”).
-
- Zaključak OLS:
-
-Model predviđa relativno dobro (R² ~ 68%).
-
-Koeficijenti su razumni, ali zbog nenormalnih reziduala i dummy varijabli, interpretacija može biti neprecizna.
-
-Ako je cilj predikcija, OLS je dobar baseline, ali za stabilniju interpretaciju može se koristiti regularizacija.
-
-Ridge Regression (L2 regularizacija)
-
-MAE ≈ 0.76, RMSE ≈ 1.06, Adjusted R² ≈ 0.681
-
-Rezultati su praktično identični OLS modelu.
-
-Zašto Ridge?
-
-Ridge ublažava multikolinearnost i smanjuje varijansu koeficijenata.
-
-Kod ovog skupa podataka efekat nije dramatičan jer si već uklonila savršenu kolinearnost i većina dummy varijabli ima raznovrsne vrednosti.
-
- Zaključak Ridge:
-
-Model je stabilniji od OLS u slučaju da bi bilo više kolinearnosti.
-
-Predikcijske metrike su gotovo iste, što znači da regularizacija nije drastično poboljšala grešku ovde.
-
- Lasso Regression (L1 regularizacija)
-
-MAE ≈ 0.77, RMSE ≈ 1.07, Adjusted R² ≈ 0.667
-
-Metrike su blago lošije od Ridge i OLS.
-
-Zašto Lasso?
-
-Lasso može potpuno "ugasiti" (postaviti na 0) neke koeficijente i time obaviti feature selection.
-
-Na dataset-u sa mnogo dummy varijabli, Lasso može ukloniti varijable koje ne doprinose mnogo predikciji, što ponekad povećava grešku.
-
-Zaključak Lasso:
-
-Pogodna za redukciju broja varijabli i stabilniju interpretaciju.
-
-Blago gubi na predikcijskoj tačnosti u odnosu na OLS/Ridge, ali daje jednostavniji model.
-
-
-OLS i Ridge daju vrlo slične rezultate, što znači da regularizacija nije bila nužna za stabilnost modela.
-
-Lasso uklanja neke feature-e, ali blago gubi na tačnosti. Može biti koristan za smanjenje broja varijabli.
-
-Pretpostavke linearne regresije su uglavnom zadovoljene osim normalnosti reziduala, što je očekivano zbog ekstrema u zaradi filmova.
-
-Predikcija u log-skali je stabilna; vraćanjem u originalnu skalu (expm1(pred)) greška bi bila u dolarima i veća zbog heteroskedastičnosti.
-
- Praktični zaključak:
-
-Za predikciju zarade filma, OLS ili Ridge su solidni.
-
-Ako želiš pojednostavljen model sa manje feature-a, koristi Lasso.
-
-Uvek imaj na umu da ekstremni blockbusteri mogu značajno uticati na grešku i normalnost reziduala.
-
-
-
-Zaključci iz rezultata
-
-OLS i Ridge imaju skoro iste performanse (R² ≈ 0.68).
-→ Ridge pomaže kad postoji multikolinearnost, stabilizuje koeficijente, ali ne diže R² dramatično.
-
-Lasso ima manji R² (~0.67), jer agresivnije "gasi" neke koeficijente → možeš ga koristiti za feature selection.
-
-Gradient Boosting i Random Forest su slični Ridge-u, ali čak i nešto slabiji u tvom slučaju (R² ~0.66).
-→ To znači da je odnos prediktora i targeta verovatno pretežno linearan, pa linearni modeli rade bolje.
-
-*Decision Tree: tumačenje rezultata*
--MAE ≈ 0.88 → prosečna greška u predikciji log(gross) je veća nego kod linearnih i ensemble modela (OLS, Ridge, Random Forest).
--RMSE ≈ 1.26 → još veća greška na outlierima, pokazuje da se stablo "muči" sa ekstremnim blockbusterima.
--Adjusted R² ≈ 0.54 → značajno lošije od OLS (~0.68), Ridge (~0.68) i čak Random Foresta (~0.66).
-
-=> To znači da Decision Tree kao samostalni model nije dobar za ove podatke – previše se prilagođava trening setu 
-(overfitting), ali se loše generalizuje na test set.
-Decision Tree nije dobar za generalnu predikciju (slab Adjusted R²), ali lepo ilustruje da su votes i budget najjači prediktori.
-
-najbolji featuri:
-Budget jeste input (koliko novca uložiš), ali ne garantuje automatski uspeh.
-
-Votes zapravo hvata popularnost (koliko ljudi se uključilo da oceni film), i to je vrlo direktan signal za prihod.
-'''
-
-
-
-
-
-
